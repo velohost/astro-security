@@ -1,8 +1,6 @@
 import fs from "node:fs";
-import path from "node:path";
 import type { SecurityConfig } from "../types.js";
-
-const CONFIG_FILENAME = "security.config.json";
+import { NEW_CONFIG_PATH } from "./paths.js";
 
 /**
  * Hard fallback configuration.
@@ -42,22 +40,12 @@ const FALLBACK_CONFIG: SecurityConfig = {
  * - Never blocks build or dev
  */
 export function loadSecurityConfig(): SecurityConfig {
-  let projectRoot: string;
-
-  try {
-    projectRoot = process.cwd();
-  } catch {
-    return FALLBACK_CONFIG;
-  }
-
-  const configPath = path.join(projectRoot, CONFIG_FILENAME);
-
-  if (!fs.existsSync(configPath)) {
+  if (!fs.existsSync(NEW_CONFIG_PATH)) {
     return FALLBACK_CONFIG;
   }
 
   try {
-    const raw = fs.readFileSync(configPath, "utf-8");
+    const raw = fs.readFileSync(NEW_CONFIG_PATH, "utf-8");
     const parsed = JSON.parse(raw);
 
     return normaliseConfig(parsed);

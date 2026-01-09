@@ -1,6 +1,6 @@
 {
   "name": "astro-security",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "RFC 9116 security.txt generation for Astro sites at build time",
   "homepage": "https://velohost.co.uk/plugins/astro-security/",
   "repository": {

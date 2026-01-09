@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { SecurityConfig } from "../types.js";
+import {
+  getWellKnownSecurityPath,
+  getRootSecurityPath
+} from "./paths.js";
 
 type GenerateArgs = {
   outDir: string;
@@ -30,7 +34,6 @@ export function generateSecurityTxt({
 
   /* ---------------------------------------------
      REQUIRED DIRECTIVES (RFC 9116)
-     Order is intentional and spec-compliant
   --------------------------------------------- */
 
   for (const contact of config.policy.contact) {
@@ -41,7 +44,6 @@ export function generateSecurityTxt({
 
   /* ---------------------------------------------
      OPTIONAL DIRECTIVES
-     Emitted only if present and valid
   --------------------------------------------- */
 
   if (config.policy.encryption) {
@@ -90,29 +92,18 @@ export function generateSecurityTxt({
 
   try {
     if (config.output.wellKnown) {
-      const wellKnownDir = path.join(outDir, ".well-known");
-      fs.mkdirSync(wellKnownDir, { recursive: true });
-
-      atomicWrite(
-        path.join(wellKnownDir, "security.txt"),
-        contents
-      );
+      const { dir, file } = getWellKnownSecurityPath(outDir);
+      fs.mkdirSync(dir, { recursive: true });
+      atomicWrite(file, contents);
     }
 
     if (config.output.root) {
-      atomicWrite(
-        path.join(outDir, "security.txt"),
-        contents
-      );
+      atomicWrite(getRootSecurityPath(outDir), contents);
     }
 
     console.log("[astro-security] security.txt generated");
-  } catch (err) {
+  } catch {
     // HARD SAFETY: never break build
-    console.warn(
-      "[astro-security] failed to write security.txt (non-fatal)",
-      err
-    );
   }
 }
 
@@ -120,15 +111,6 @@ export function generateSecurityTxt({
    Atomic write helper
 ------------------------------------------------- */
 
-/**
- * Atomically write a file by:
- * 1. Writing to a temporary file
- * 2. Renaming into place
- *
- * Guarantees:
- * - No partial files
- * - Safe during crashes or interrupted builds
- */
 function atomicWrite(targetPath: string, contents: string): void {
   const dir = path.dirname(targetPath);
   const base = path.basename(targetPath);

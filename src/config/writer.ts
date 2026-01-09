@@ -1,8 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { SecurityConfig } from "../types.js";
-
-const CONFIG_FILENAME = "security.config.json";
+import {
+  CONFIG_DIR,
+  CONFIG_FILENAME,
+  NEW_CONFIG_PATH,
+  LEGACY_CONFIG_PATH
+} from "./paths.js";
 
 /**
  * Default security configuration.
@@ -27,109 +31,58 @@ const DEFAULT_CONFIG: SecurityConfig = {
   },
 
   policy: {
-    /**
-     * REQUIRED
-     * One or more contact methods.
-     *
-     * Valid formats:
-     * - "mailto:security@example.com"
-     * - "https://example.com/security"
-     */
-    contact: [
-      "mailto:security@example.com"
-    ],
-
-    /**
-     * REQUIRED
-     * Expiry date in ISO 8601 format.
-     *
-     * IMPORTANT:
-     * This must be updated periodically.
-     * Expired files should not be trusted.
-     */
+    contact: ["mailto:security@example.com"],
     expires: "2026-12-31T18:37:07.000Z",
 
-    /**
-     * OPTIONAL
-     * HTTPS URL to an encryption key (PGP, etc).
-     */
     encryption: "https://example.com/.well-known/pgp-key.txt",
-
-    /**
-     * OPTIONAL
-     * HTTPS URL acknowledging security researchers.
-     */
     acknowledgments: "https://example.com/security/thanks",
-
-    /**
-     * OPTIONAL (single directive)
-     * RFC 5646 language codes.
-     * Example: ["en", "en-GB"]
-     */
     preferredLanguages: ["en"],
-
-    /**
-     * OPTIONAL
-     * Canonical URLs where security.txt is hosted.
-     * Required if the file is digitally signed.
-     */
     canonical: [
       "https://example.com/.well-known/security.txt",
       "https://example.com/security.txt"
     ],
-
-    /**
-     * OPTIONAL
-     * Vulnerability disclosure policy.
-     * Must be HTTPS.
-     */
     policy: "https://example.com/security",
-
-    /**
-     * OPTIONAL
-     * Security-related hiring page.
-     * Must be HTTPS.
-     */
     hiring: "https://example.com/careers/security",
-
-    /**
-     * OPTIONAL
-     * CSAF provider metadata.
-     * Must be HTTPS.
-     */
     csaf: "https://example.com/.well-known/csaf/provider-metadata.json"
   }
 };
 
 /**
- * Ensure security.config.json exists in project root.
+ * Ensure security.config.json exists in canonical location.
+ *
+ * MIGRATION BEHAVIOUR:
+ * - If legacy config exists → move it to config-files/
+ * - If new config already exists → do nothing
+ * - If neither exists → create default config
  *
  * HARD GUARANTEES:
- * - Create only if missing
  * - Never overwrite
  * - Never throw
- * - Never block dev or build
+ * - Never block build or dev
  */
 export function ensureSecurityConfigFile(): void {
-  let projectRoot: string;
-
   try {
-    projectRoot = process.cwd();
-  } catch {
-    // Extremely defensive: cwd should always exist
-    return;
-  }
+    // Ensure config directory exists
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
 
-  const configPath = path.join(projectRoot, CONFIG_FILENAME);
+    // Case 1: Canonical config already exists → do nothing
+    if (fs.existsSync(NEW_CONFIG_PATH)) {
+      return;
+    }
 
-  // Never overwrite an existing file
-  if (fs.existsSync(configPath)) {
-    return;
-  }
+    // Case 2: Legacy root config exists → migrate
+    if (fs.existsSync(LEGACY_CONFIG_PATH)) {
+      fs.renameSync(LEGACY_CONFIG_PATH, NEW_CONFIG_PATH);
 
-  try {
+      console.log(
+        "[astro-security] migrated security.config.json to config-files/"
+      );
+      return;
+    }
+
+    // Case 3: No config exists → create default
     fs.writeFileSync(
-      configPath,
+      NEW_CONFIG_PATH,
       JSON.stringify(DEFAULT_CONFIG, null, 2),
       {
         encoding: "utf-8",
@@ -138,10 +91,10 @@ export function ensureSecurityConfigFile(): void {
     );
 
     console.log(
-      `[astro-security] created ${CONFIG_FILENAME} — edit this file to publish security.txt`
+      "[astro-security] created config-files/security.config.json — edit this file to publish security.txt"
     );
   } catch {
     // HARD FAIL-SAFE:
-    // Configuration creation must NEVER stop a build
+    // security.txt must NEVER stop a build
   }
 }

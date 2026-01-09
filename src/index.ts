@@ -9,7 +9,7 @@ import { generateSecurityTxt } from "./build/generate.js";
  * Astro integration for RFC 9116 security.txt support.
  *
  * Responsibilities:
- * - Ensure security.config.json exists (first run)
+ * - Ensure security.config.json exists (first run only)
  * - Load & normalise config (fail-closed)
  * - Generate security.txt files at build time
  *
@@ -27,7 +27,7 @@ export default function astroSecurity(): AstroIntegration {
       /**
        * Runs once Astro config is loaded.
        *
-       * SAFE place to:
+       * Safe place to:
        * - create config file
        * - perform non-fatal setup
        *
